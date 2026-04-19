@@ -17,12 +17,14 @@
 
 #include "lcd.h"
 #include "touch.h"
+#include "encoder.h"
 
 static const char *TAG = "demo";
 
 static lv_obj_t *lbl_counter;
 static lv_obj_t *lbl_touch;     // shows live X, Y
 static lv_obj_t *lbl_touch_dot; // small dot that follows the finger
+static lv_obj_t *lbl_encoder;   // shows rotary encoder position
 
 
 static esp_err_t app_lvgl_main(void)
@@ -64,7 +66,7 @@ static esp_err_t app_lvgl_main(void)
     lbl_touch = lv_label_create(scr);
     lv_label_set_text(lbl_touch, "Touch: ---");
     lv_obj_set_style_text_color(lbl_touch, lv_color_make(0xff, 0xff, 0x00), LV_STATE_DEFAULT);
-    lv_obj_align(lbl_touch, LV_ALIGN_BOTTOM_LEFT, 0, -8);
+    lv_obj_align(lbl_touch, LV_ALIGN_BOTTOM_MID, 0, -8);
 
     // Small dot that moves to the touch position
     lbl_touch_dot = lv_obj_create(scr);
@@ -73,6 +75,12 @@ static esp_err_t app_lvgl_main(void)
     lv_obj_set_style_bg_color(lbl_touch_dot, lv_color_make(0xff, 0xff, 0x00), LV_STATE_DEFAULT);
     lv_obj_set_style_border_width(lbl_touch_dot, 0, LV_STATE_DEFAULT);
     lv_obj_add_flag(lbl_touch_dot, LV_OBJ_FLAG_HIDDEN); // hidden until first touch
+
+    // Encoder position readout
+    lbl_encoder = lv_label_create(scr);
+    lv_label_set_text(lbl_encoder, "Enc: 0");
+    lv_obj_set_style_text_color(lbl_encoder, lv_color_make(0x00, 0xff, 0xff), LV_STATE_DEFAULT);
+    lv_obj_align(lbl_encoder, LV_ALIGN_BOTTOM_LEFT, 8, -8);
 
     lvgl_port_unlock();
 
@@ -107,6 +115,8 @@ void app_main(void)
     touch_cfg.scale.y = 0;
     lvgl_port_add_touch(&touch_cfg);
 
+    ESP_ERROR_CHECK(encoder_init());
+
     ESP_ERROR_CHECK(lcd_display_brightness_set(75));
     ESP_ERROR_CHECK(lcd_display_rotate(lvgl_display, LV_DISPLAY_ROTATION_270));
     ESP_ERROR_CHECK(app_lvgl_main());
@@ -121,6 +131,10 @@ void app_main(void)
         bool touched = esp_lcd_touch_get_coordinates(
             tp, touch_x, touch_y, touch_strength, &touch_cnt, 1);
 
+        // --- read encoder ---
+        int enc_pos = encoder_get_position();
+        bool sw_pressed = encoder_sw_pressed();
+
         // --- update LVGL labels under lock ---
         if (lvgl_port_lock(0))
         {
@@ -128,11 +142,18 @@ void app_main(void)
             sprintf(buf, "%04d", n++);
             lv_label_set_text(lbl_counter, buf);
 
+            // encoder position
+            if (sw_pressed)
+                sprintf(buf, "Enc: %d [CLICK]", enc_pos);
+            else
+                sprintf(buf, "Enc: %d", enc_pos);
+            lv_label_set_text(lbl_encoder, buf);
+
             if (touched && touch_cnt > 0)
             {
                 sprintf(buf, "Touch: %3d, %3d", touch_x[0], touch_y[0]);
                 lv_label_set_text(lbl_touch, buf);
-                lv_obj_align(lbl_touch, LV_ALIGN_BOTTOM_LEFT, 0, -8);
+                lv_obj_align(lbl_touch, LV_ALIGN_BOTTOM_MID, 0, -8);
 
                 // Move the dot to the finger position
                 lv_obj_clear_flag(lbl_touch_dot, LV_OBJ_FLAG_HIDDEN);

@@ -27,4 +27,14 @@
 #define LCD_BACKLIGHT      (gpio_num_t) GPIO_NUM_47
 #define LCD_BACKLIGHT_LEDC_CH  (1)
 
+// Touch - FT6336 over I2C
+#define TOUCH_I2C_PORT      I2C_NUM_0
+#define TOUCH_I2C_ADDR      0x38            // FT6336 default address
+#define TOUCH_I2C_CLOCK_HZ  (400 * 1000)   // 400kHz fast mode
+#define TOUCH_SDA           (gpio_num_t) GPIO_NUM_8
+#define TOUCH_SCL           (gpio_num_t) GPIO_NUM_9
+#define TOUCH_IRQ           (gpio_num_t) GPIO_NUM_15
+#define TOUCH_RST           (gpio_num_t) GPIO_NUM_16
 
+#define TOUCH_MIRROR_X      false
+#define TOUCH_MIRROR_Y      true

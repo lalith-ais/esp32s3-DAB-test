@@ -1,78 +1,67 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
-#include <freertos/semphr.h>
 
 #include <esp_log.h>
 #include <esp_err.h>
 #include <esp_lcd_touch.h>
-#include <esp_lcd_touch_xpt2046.h>
-
-#include <driver/spi_master.h>
+#include <esp_lcd_touch_ft5x06.h>
+#include <esp_lcd_panel_io.h>
+#include <esp_check.h>
+#include <driver/i2c_master.h>
 #include <driver/gpio.h>
 
 #include "hardware.h"
 #include "touch.h"
 
-static uint16_t map(uint16_t n, uint16_t in_min, uint16_t in_max, uint16_t out_min, uint16_t out_max)
-{
-    uint16_t value = (n - in_min) * (out_max - out_min) / (in_max - in_min);
-    return (value < out_min) ? out_min : ((value > out_max) ? out_max : value);
-}
-
-static void process_coordinates(esp_lcd_touch_handle_t tp, uint16_t *x, uint16_t *y, uint16_t *strength, uint8_t *point_num, uint8_t max_point_num)
-{
-    *x = map(*x, TOUCH_X_RES_MIN, TOUCH_X_RES_MAX, 0, LCD_H_RES);
-    *y = map(*y, TOUCH_Y_RES_MIN, TOUCH_Y_RES_MAX, 0, LCD_V_RES);
-}
+static const char *TAG = "touch";
 
 esp_err_t touch_init(esp_lcd_touch_handle_t *tp)
 {
-    esp_lcd_panel_io_handle_t tp_io_handle = NULL;
+    ESP_LOGI(TAG, "Initialising FT6336 touch over I2C");
 
-    const esp_lcd_panel_io_spi_config_t tp_io_config = { .cs_gpio_num = TOUCH_CS,
-        .dc_gpio_num = TOUCH_DC,
-        .spi_mode = 0,
-        .pclk_hz = TOUCH_CLOCK_HZ,
-        .trans_queue_depth = 3,
-        .on_color_trans_done = NULL,
-        .user_ctx = NULL,
-        .lcd_cmd_bits = 8,
-        .lcd_param_bits = 8,
-        .flags = { .dc_low_on_data = 0, .octal_mode = 0, .sio_mode = 0, .lsb_first = 0, .cs_high_active = 0 } };
+    // Init I2C bus
+    i2c_master_bus_config_t i2c_bus_cfg = {
+        .i2c_port = TOUCH_I2C_PORT,
+        .sda_io_num = TOUCH_SDA,
+        .scl_io_num = TOUCH_SCL,
+        .clk_source = I2C_CLK_SRC_DEFAULT,
+        .glitch_ignore_cnt = 7,
+        .flags.enable_internal_pullup = true,
+    };
 
-    static const int SPI_MAX_TRANSFER_SIZE = 32768;
-    const spi_bus_config_t buscfg_touch = { .mosi_io_num = TOUCH_SPI_MOSI,
-        .miso_io_num = TOUCH_SPI_MISO,
-        .sclk_io_num = TOUCH_SPI_CLK,
-        .quadwp_io_num = GPIO_NUM_NC,
-        .quadhd_io_num = GPIO_NUM_NC,
-        .data4_io_num = GPIO_NUM_NC,
-        .data5_io_num = GPIO_NUM_NC,
-        .data6_io_num = GPIO_NUM_NC,
-        .data7_io_num = GPIO_NUM_NC,
-        .max_transfer_sz = SPI_MAX_TRANSFER_SIZE,
-        .flags = SPICOMMON_BUSFLAG_SCLK | SPICOMMON_BUSFLAG_MISO | SPICOMMON_BUSFLAG_MOSI | SPICOMMON_BUSFLAG_MASTER | SPICOMMON_BUSFLAG_GPIO_PINS,
-        .isr_cpu_id = ESP_INTR_CPU_AFFINITY_AUTO,
-        .intr_flags = ESP_INTR_FLAG_LOWMED | ESP_INTR_FLAG_IRAM };
+    i2c_master_bus_handle_t i2c_bus;
+    ESP_RETURN_ON_ERROR(i2c_new_master_bus(&i2c_bus_cfg, &i2c_bus), TAG, "I2C bus init failed");
 
-    esp_lcd_touch_config_t tp_cfg = {.x_max = LCD_H_RES,
-                                   .y_max = LCD_V_RES,
-                                   .rst_gpio_num = TOUCH_RST,
-                                   .int_gpio_num = TOUCH_IRQ,
-                                   .levels = {.reset = 0, .interrupt = 0},
-                                   .flags =
-                                       {
-                                           .swap_xy = false,
-                                           .mirror_x = TOUCH_MIRROR_X,
-                                           .mirror_y = TOUCH_MIRROR_Y
-                                       },
-                                   .process_coordinates = process_coordinates,
-                                   .interrupt_callback = NULL};
+    // Create panel IO over I2C
+    esp_lcd_panel_io_handle_t tp_io;
+    esp_lcd_panel_io_i2c_config_t tp_io_cfg = ESP_LCD_TOUCH_IO_I2C_FT5x06_CONFIG();
+    tp_io_cfg.dev_addr = TOUCH_I2C_ADDR;
 
-    ESP_ERROR_CHECK(spi_bus_initialize(TOUCH_SPI, &buscfg_touch, SPI_DMA_CH_AUTO));
+    ESP_RETURN_ON_ERROR(
+        esp_lcd_new_panel_io_i2c(i2c_bus, &tp_io_cfg, &tp_io),
+        TAG, "Touch panel IO init failed");
 
-    ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)TOUCH_SPI, &tp_io_config, &tp_io_handle));
-    ESP_ERROR_CHECK(esp_lcd_touch_new_spi_xpt2046(tp_io_handle, &tp_cfg, tp));
+    // Configure the touch driver
+    esp_lcd_touch_config_t tp_cfg = {
+        .x_max = LCD_H_RES,
+        .y_max = LCD_V_RES,
+        .rst_gpio_num = TOUCH_RST,
+        .int_gpio_num = TOUCH_IRQ,
+        .levels = {
+            .reset = 0,
+            .interrupt = 0,
+        },
+        .flags = {
+            .swap_xy = true,
+            .mirror_x = TOUCH_MIRROR_X,
+            .mirror_y = TOUCH_MIRROR_Y,
+        },
+    };
 
+    ESP_RETURN_ON_ERROR(
+        esp_lcd_touch_new_i2c_ft5x06(tp_io, &tp_cfg, tp),
+        TAG, "FT5x06/FT6336 touch driver init failed");
+
+    ESP_LOGI(TAG, "FT6336 touch initialised OK");
     return ESP_OK;
 }

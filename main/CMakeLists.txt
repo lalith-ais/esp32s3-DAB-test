@@ -1,4 +1,4 @@
-idf_component_register(SRCS demo.c lcd.c 
+idf_component_register(SRCS demo.c lcd.c touch.c
                     INCLUDE_DIRS "."
-                    REQUIRES esp_driver_ledc
+                    REQUIRES esp_driver_ledc esp_driver_i2c
                     )

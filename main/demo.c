@@ -18,6 +18,7 @@
 #include "lcd.h"
 #include "touch.h"
 #include "encoder.h"
+#include "logo.h"   // declares: LV_IMG_DECLARE(logo)
 
 static const char *TAG = "demo";
 
@@ -26,12 +27,43 @@ static lv_obj_t *lbl_touch;     // shows live X, Y
 static lv_obj_t *lbl_touch_dot; // small dot that follows the finger
 static lv_obj_t *lbl_encoder;   // shows rotary encoder position
 
+static lv_obj_t *test_screen   = NULL;
+static lv_obj_t *splash_screen = NULL;
 
-static esp_err_t app_lvgl_main(void)
+
+// ─── Splash timer callback ────────────────────────────────────────────────────
+
+static void splash_timer_cb(lv_timer_t *timer)
 {
-    lv_obj_t *scr = lv_scr_act();
+    lv_timer_del(timer);
+    // Fade in over 400 ms; last arg = true → auto-delete splash after transition
+    lv_scr_load_anim(test_screen, LV_SCR_LOAD_ANIM_FADE_IN, 400, 0, true);
+}
+
+
+// ─── Splash screen ────────────────────────────────────────────────────────────
+
+static void create_splash_screen(void)
+{
+    splash_screen = lv_obj_create(NULL);
+    lv_obj_set_style_bg_color(splash_screen, lv_color_black(), LV_STATE_DEFAULT);
+
+    // The logo is 320×240 – exactly fills the display in landscape
+    lv_obj_t *img = lv_img_create(splash_screen);
+    lv_img_set_src(img, &logo);
+    lv_obj_center(img);
+}
+
+
+// ─── Test screen (original app_lvgl_main, now builds into its own screen) ────
+
+static esp_err_t create_test_screen(void)
+{
+    test_screen = lv_obj_create(NULL);   // <-- own screen, not lv_scr_act()
 
     lvgl_port_lock(0);
+
+    lv_obj_t *scr = test_screen;  // convenience alias
 
     // Background
     lv_obj_set_style_bg_color(scr, lv_color_black(), LV_STATE_DEFAULT);
@@ -88,6 +120,8 @@ static esp_err_t app_lvgl_main(void)
 }
 
 
+// ─── app_main ─────────────────────────────────────────────────────────────────
+
 void app_main(void)
 {
     esp_lcd_panel_io_handle_t lcd_io;
@@ -119,7 +153,15 @@ void app_main(void)
 
     ESP_ERROR_CHECK(lcd_display_brightness_set(75));
     ESP_ERROR_CHECK(lcd_display_rotate(lvgl_display, LV_DISPLAY_ROTATION_270));
-    ESP_ERROR_CHECK(app_lvgl_main());
+
+    // Build test screen first (hidden), then show splash on top
+    ESP_ERROR_CHECK(create_test_screen());
+
+    lvgl_port_lock(0);
+    create_splash_screen();
+    lv_scr_load(splash_screen);                    // show splash immediately
+    lv_timer_create(splash_timer_cb, 2500, NULL);  // switch after 2.5 s
+    lvgl_port_unlock();
 
     while (42)
     {

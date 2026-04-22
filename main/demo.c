@@ -22,6 +22,15 @@
 
 static const char *TAG = "demo";
 
+// Constants
+#define TOUCH_POLL_MS          50
+#define SPLASH_DURATION_MS     2500
+#define COUNTER_MAX            10000
+#define DOT_SIZE               12
+#define DOT_OFFSET             (DOT_SIZE / 2)
+#define DISPLAY_WIDTH          320
+#define DISPLAY_HEIGHT         240
+
 static lv_obj_t *lbl_counter;
 static lv_obj_t *lbl_touch;     // shows live X, Y
 static lv_obj_t *lbl_touch_dot; // small dot that follows the finger
@@ -30,12 +39,17 @@ static lv_obj_t *lbl_encoder;   // shows rotary encoder position
 static lv_obj_t *test_screen   = NULL;
 static lv_obj_t *splash_screen = NULL;
 
+static lv_timer_t *splash_timer = NULL;
+
+// Global touch handle for error checking
+static esp_lcd_touch_handle_t global_tp = NULL;
 
 // ─── Splash timer callback ────────────────────────────────────────────────────
 
 static void splash_timer_cb(lv_timer_t *timer)
 {
     lv_timer_del(timer);
+    ESP_LOGI(TAG, "Splash screen finished, loading test screen");
     // Fade in over 400 ms; last arg = true → auto-delete splash after transition
     lv_scr_load_anim(test_screen, LV_SCR_LOAD_ANIM_FADE_IN, 400, 0, true);
 }
@@ -113,7 +127,7 @@ static esp_err_t create_test_screen(void)
 
     // Small dot that moves to the touch position
     lbl_touch_dot = lv_obj_create(scr);
-    lv_obj_set_size(lbl_touch_dot, 12, 12);
+    lv_obj_set_size(lbl_touch_dot, DOT_SIZE, DOT_SIZE);
     lv_obj_set_style_radius(lbl_touch_dot, LV_RADIUS_CIRCLE, LV_STATE_DEFAULT);
     lv_obj_set_style_bg_color(lbl_touch_dot, lv_color_make(0xff, 0xff, 0x00), LV_STATE_DEFAULT);
     lv_obj_set_style_border_width(lbl_touch_dot, 0, LV_STATE_DEFAULT);
@@ -127,9 +141,122 @@ static esp_err_t create_test_screen(void)
 
     lvgl_port_unlock();
 
+    ESP_LOGI(TAG, "Test screen created successfully");
     return ESP_OK;
 }
 
+// ─── LVGL update task ─────────────────────────────────────────────────────────
+
+static void lvgl_update_task(void *arg)
+{
+    char buf[32];
+    uint16_t n = 0;
+    bool last_touch_state = false;
+    
+    // For encoder click action tracking
+    bool last_sw_state = false;
+    
+    ESP_LOGI(TAG, "LVGL update task started");
+
+    while (1)
+    {
+        // --- read raw touch data (only if touch is available) ---
+        bool touch_available = (global_tp != NULL);
+        uint8_t point_cnt = 0;
+        esp_err_t err = ESP_FAIL;
+        
+        if (touch_available)
+        {
+            esp_lcd_touch_point_data_t touch_points[1];  // Array to store touch points
+            uint8_t max_points = 1;
+            
+            esp_lcd_touch_read_data(global_tp);  // Still need to read data first
+            err = esp_lcd_touch_get_data(global_tp, touch_points, &point_cnt, max_points);
+            
+            // Update UI based on touch state
+            if (lvgl_port_lock(0))
+            {
+                if (err == ESP_OK && point_cnt > 0)
+                {
+                    int x = touch_points[0].x;
+                    int y = touch_points[0].y;
+                    
+                    // Validate coordinates
+                    if (x >= 0 && x < DISPLAY_WIDTH && y >= 0 && y < DISPLAY_HEIGHT)
+                    {
+                        if (!last_touch_state)
+                        {
+                            ESP_LOGD(TAG, "Touch started at (%d, %d)", x, y);
+                            last_touch_state = true;
+                        }
+                        
+                        sprintf(buf, "Touch: %3d, %3d", x, y);
+                        lv_label_set_text(lbl_touch, buf);
+                        lv_obj_align(lbl_touch, LV_ALIGN_BOTTOM_MID, 0, -8);
+                        
+                        // Move the dot to the finger position
+                        lv_obj_clear_flag(lbl_touch_dot, LV_OBJ_FLAG_HIDDEN);
+                        lv_obj_set_pos(lbl_touch_dot, x - DOT_OFFSET, y - DOT_OFFSET);
+                    }
+                    else
+                    {
+                        ESP_LOGW(TAG, "Invalid touch coordinates: (%d, %d)", x, y);
+                        lv_label_set_text(lbl_touch, "Touch: ---");
+                        lv_obj_add_flag(lbl_touch_dot, LV_OBJ_FLAG_HIDDEN);
+                    }
+                }
+                else
+                {
+                    if (last_touch_state)
+                    {
+                        ESP_LOGD(TAG, "Touch ended");
+                        last_touch_state = false;
+                    }
+                    lv_label_set_text(lbl_touch, "Touch: ---");
+                    lv_obj_add_flag(lbl_touch_dot, LV_OBJ_FLAG_HIDDEN);
+                }
+                lvgl_port_unlock();
+            }
+        }
+
+        // --- read encoder ---
+        int enc_pos = encoder_get_position();
+        bool sw_pressed = encoder_sw_pressed();
+
+        // --- update LVGL labels under lock ---
+        if (lvgl_port_lock(0))
+        {
+            // Counter with overflow protection
+            sprintf(buf, "%04d", n);
+            lv_label_set_text(lbl_counter, buf);
+            n = (n + 1) % COUNTER_MAX;
+
+            // Encoder position with click detection
+            if (sw_pressed)
+            {
+                sprintf(buf, "Enc: %d [CLICK]", enc_pos);
+                // Optional: Add action when encoder button is pressed
+                if (!last_sw_state)
+                {
+                    ESP_LOGI(TAG, "Encoder button pressed at position %d", enc_pos);
+                    // Reset counter on click (example action)
+                    n = 0;
+                    last_sw_state = true;
+                }
+            }
+            else
+            {
+                sprintf(buf, "Enc: %d", enc_pos);
+                last_sw_state = false;
+            }
+            lv_label_set_text(lbl_encoder, buf);
+
+            lvgl_port_unlock();
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(TOUCH_POLL_MS));
+    }
+}
 
 // ─── app_main ─────────────────────────────────────────────────────────────────
 
@@ -137,31 +264,46 @@ void app_main(void)
 {
     esp_lcd_panel_io_handle_t lcd_io;
     esp_lcd_panel_handle_t    lcd_panel;
-    esp_lcd_touch_handle_t    tp;
     lvgl_port_touch_cfg_t     touch_cfg;
     lv_display_t             *lvgl_display = NULL;
-    char buf[32];
-    uint16_t n = 0;
-
+    
+    // Initialize display brightness
     ESP_ERROR_CHECK(lcd_display_brightness_init());
 
+    // Initialize LCD panel
     ESP_ERROR_CHECK(app_lcd_init(&lcd_io, &lcd_panel));
+    
+    // Initialize LVGL
     lvgl_display = app_lvgl_init(lcd_io, lcd_panel);
     if (lvgl_display == NULL)
     {
-        ESP_LOGI(TAG, "fatal error in app_lvgl_init");
+        ESP_LOGE(TAG, "Fatal error in app_lvgl_init");
         esp_restart();
     }
+    ESP_LOGI(TAG, "LVGL initialized successfully");
 
-    ESP_ERROR_CHECK(touch_init(&tp));
-    touch_cfg.disp    = lvgl_display;
-    touch_cfg.handle  = tp;
-    touch_cfg.scale.x = 0;
-    touch_cfg.scale.y = 0;
-    lvgl_port_add_touch(&touch_cfg);
+    // Initialize touch (with error recovery)
+    esp_err_t touch_err = touch_init(&global_tp);
+    if (touch_err != ESP_OK || global_tp == NULL)
+    {
+        ESP_LOGW(TAG, "Touch not available (err=%d), continuing without touch", touch_err);
+        global_tp = NULL;
+    }
+    else
+    {
+        ESP_LOGI(TAG, "Touch initialized successfully");
+        touch_cfg.disp    = lvgl_display;
+        touch_cfg.handle  = global_tp;
+        touch_cfg.scale.x = 0;
+        touch_cfg.scale.y = 0;
+        lvgl_port_add_touch(&touch_cfg);
+    }
 
+    // Initialize encoder
     ESP_ERROR_CHECK(encoder_init());
+    ESP_LOGI(TAG, "Encoder initialized, initial position: %d", encoder_get_position());
 
+    // Set display brightness and rotation
     ESP_ERROR_CHECK(lcd_display_brightness_set(75));
     ESP_ERROR_CHECK(lcd_display_rotate(lvgl_display, LV_DISPLAY_ROTATION_270));
 
@@ -171,58 +313,21 @@ void app_main(void)
     lvgl_port_lock(0);
     create_splash_screen();
     lv_scr_load(splash_screen);                    // show splash immediately
-    lv_timer_create(splash_timer_cb, 2500, NULL);  // switch after 2.5 s
+    splash_timer = lv_timer_create(splash_timer_cb, SPLASH_DURATION_MS, NULL);
     lvgl_port_unlock();
+    
+    ESP_LOGI(TAG, "Splash screen displayed for %d ms", SPLASH_DURATION_MS);
 
-    while (42)
+    // Create LVGL update task
+    xTaskCreate(lvgl_update_task, "lvgl_update", 4096, NULL, 5, NULL);
+    ESP_LOGI(TAG, "LVGL update task created");
+
+    // Main loop just waits (all work is done in tasks)
+    while (1)
     {
-// --- read raw touch data ---
-		esp_lcd_touch_point_data_t touch_points[1];  // Array to store touch points
-		uint8_t point_cnt = 0;
-		uint8_t max_points = 1;
-		
-		esp_lcd_touch_read_data(tp);  // Still need to read data first
-		esp_err_t err = esp_lcd_touch_get_data(tp, touch_points, &point_cnt, max_points);
-
-        // --- read encoder ---
-        int enc_pos = encoder_get_position();
-        bool sw_pressed = encoder_sw_pressed();
-
-        // --- update LVGL labels under lock ---
-        if (lvgl_port_lock(0))
-        {
-            // counter ticks regardless
-            sprintf(buf, "%04d", n++);
-            lv_label_set_text(lbl_counter, buf);
-
-            // encoder position
-            if (sw_pressed)
-                sprintf(buf, "Enc: %d [CLICK]", enc_pos);
-            else
-                sprintf(buf, "Enc: %d", enc_pos);
-            lv_label_set_text(lbl_encoder, buf);
-
-			if (err == ESP_OK && point_cnt > 0)
-			{
-			    sprintf(buf, "Touch: %3d, %3d", touch_points[0].x, touch_points[0].y);
-			    lv_label_set_text(lbl_touch, buf);
-			    lv_obj_align(lbl_touch, LV_ALIGN_BOTTOM_MID, 0, -8);
-			
-			    // Move the dot to the finger position
-			    lv_obj_clear_flag(lbl_touch_dot, LV_OBJ_FLAG_HIDDEN);
-			    lv_obj_set_pos(lbl_touch_dot, touch_points[0].x - 6, touch_points[0].y - 6);
-			}
-            else
-            {
-                lv_label_set_text(lbl_touch, "Touch: ---");
-                lv_obj_add_flag(lbl_touch_dot, LV_OBJ_FLAG_HIDDEN);
-            }
-
-            lvgl_port_unlock();
-        }
-
-        vTaskDelay(50 / portTICK_PERIOD_MS); // ~20 Hz poll
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
-
+    
+    // Should never reach here
     vTaskDelay(portMAX_DELAY);
 }

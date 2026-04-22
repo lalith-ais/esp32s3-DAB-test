@@ -55,7 +55,7 @@ static void create_splash_screen(void)
 
     // Overlay text on top of the logo
     lv_obj_t *lbl = lv_label_create(splash_screen);
-    lv_label_set_text(lbl, "ESP32 S3 DAB+ Radio");
+    lv_label_set_text(lbl, "ESP32 S3 FM / DAB / DAB+  Radio");
 
     // Style the text
     lv_obj_set_style_text_color(lbl, lv_color_white(), LV_STATE_DEFAULT);

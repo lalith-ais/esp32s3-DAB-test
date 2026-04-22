@@ -52,6 +52,17 @@ static void create_splash_screen(void)
     lv_obj_t *img = lv_img_create(splash_screen);
     lv_img_set_src(img, &logo);
     lv_obj_center(img);
+
+    // Overlay text on top of the logo
+    lv_obj_t *lbl = lv_label_create(splash_screen);
+    lv_label_set_text(lbl, "ESP32 S3 DAB+ Radio");
+
+    // Style the text
+    lv_obj_set_style_text_color(lbl, lv_color_white(), LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(lbl, &lv_font_montserrat_14, LV_STATE_DEFAULT);
+
+    // Position it – e.g. near the bottom of the screen
+    lv_obj_align(lbl, LV_ALIGN_BOTTOM_MID, 0, -16);
 }
 
 

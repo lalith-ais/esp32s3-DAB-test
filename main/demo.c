@@ -176,13 +176,13 @@ void app_main(void)
 
     while (42)
     {
-        // --- read raw touch data ---
-        uint16_t touch_x[1], touch_y[1], touch_strength[1];
-        uint8_t  touch_cnt = 0;
-
-        esp_lcd_touch_read_data(tp);
-        bool touched = esp_lcd_touch_get_coordinates(
-            tp, touch_x, touch_y, touch_strength, &touch_cnt, 1);
+// --- read raw touch data ---
+		esp_lcd_touch_point_data_t touch_points[1];  // Array to store touch points
+		uint8_t point_cnt = 0;
+		uint8_t max_points = 1;
+		
+		esp_lcd_touch_read_data(tp);  // Still need to read data first
+		esp_err_t err = esp_lcd_touch_get_data(tp, touch_points, &point_cnt, max_points);
 
         // --- read encoder ---
         int enc_pos = encoder_get_position();
@@ -202,16 +202,16 @@ void app_main(void)
                 sprintf(buf, "Enc: %d", enc_pos);
             lv_label_set_text(lbl_encoder, buf);
 
-            if (touched && touch_cnt > 0)
-            {
-                sprintf(buf, "Touch: %3d, %3d", touch_x[0], touch_y[0]);
-                lv_label_set_text(lbl_touch, buf);
-                lv_obj_align(lbl_touch, LV_ALIGN_BOTTOM_MID, 0, -8);
-
-                // Move the dot to the finger position
-                lv_obj_clear_flag(lbl_touch_dot, LV_OBJ_FLAG_HIDDEN);
-                lv_obj_set_pos(lbl_touch_dot, touch_x[0] - 6, touch_y[0] - 6);
-            }
+			if (err == ESP_OK && point_cnt > 0)
+			{
+			    sprintf(buf, "Touch: %3d, %3d", touch_points[0].x, touch_points[0].y);
+			    lv_label_set_text(lbl_touch, buf);
+			    lv_obj_align(lbl_touch, LV_ALIGN_BOTTOM_MID, 0, -8);
+			
+			    // Move the dot to the finger position
+			    lv_obj_clear_flag(lbl_touch_dot, LV_OBJ_FLAG_HIDDEN);
+			    lv_obj_set_pos(lbl_touch_dot, touch_points[0].x - 6, touch_points[0].y - 6);
+			}
             else
             {
                 lv_label_set_text(lbl_touch, "Touch: ---");

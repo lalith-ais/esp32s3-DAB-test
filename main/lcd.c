@@ -14,7 +14,6 @@
 #include <esp_lcd_panel_vendor.h>
 #include <esp_lcd_panel_ops.h>
 #include <driver/gpio.h>
-#include <driver/ledc.h>
 #include <driver/spi_master.h>
 
 #include <esp_lcd_ili9341.h>
@@ -26,61 +25,11 @@
 
 static const char *TAG="lcd";
 
-esp_err_t lcd_display_brightness_init(void)
-{
-    const ledc_channel_config_t LCD_backlight_channel = {
-        .gpio_num = LCD_BACKLIGHT,
-        .speed_mode = LEDC_LOW_SPEED_MODE,
-        .channel = LCD_BACKLIGHT_LEDC_CH,
-        .intr_type = LEDC_INTR_DISABLE,
-        .timer_sel = 1,
-        .duty = 0,
-        .hpoint = 0,
-        .flags.output_invert = false
-    };
- 
-    const ledc_timer_config_t LCD_backlight_timer = {
-        .speed_mode = LEDC_LOW_SPEED_MODE,
-        .duty_resolution = LEDC_TIMER_10_BIT,
-        .timer_num = 1,
-        .freq_hz = 5000,
-        .clk_cfg = LEDC_AUTO_CLK
-    };
 
-    ESP_ERROR_CHECK(ledc_timer_config(&LCD_backlight_timer));
-    ESP_ERROR_CHECK(ledc_channel_config(&LCD_backlight_channel));
- 
-    return ESP_OK;
-}
 
-esp_err_t lcd_display_brightness_set(int brightness_percent)
-{
-    if (brightness_percent > 100) {
-        brightness_percent = 100;
-    }
-    if (brightness_percent < 0) {
-        brightness_percent = 0;
-    }
 
-    ESP_LOGI(TAG, "Setting LCD backlight: %d%%", brightness_percent);
 
-    uint32_t duty_cycle = (1023 * brightness_percent) / 100;
 
-    ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, LCD_BACKLIGHT_LEDC_CH, duty_cycle));
-    ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE, LCD_BACKLIGHT_LEDC_CH));
-
-    return ESP_OK;
-}
-
-esp_err_t lcd_display_backlight_off(void)
-{
-    return lcd_display_brightness_set(0);
-}
-
-esp_err_t lcd_display_backlight_on(void)
-{
-    return lcd_display_brightness_set(100);
-}
 
 esp_err_t lcd_display_rotate(lv_display_t *lvgl_disp, lv_display_rotation_t dir)
 {

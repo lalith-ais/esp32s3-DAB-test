@@ -19,12 +19,12 @@
 #define LCD_SPI_CLK        (gpio_num_t) GPIO_NUM_12
 #define LCD_SPI_MOSI       (gpio_num_t) GPIO_NUM_11
 #define LCD_SPI_MISO       (gpio_num_t) GPIO_NUM_NC 
-#define LCD_DC             (gpio_num_t) GPIO_NUM_14
+#define LCD_DC             (gpio_num_t) GPIO_NUM_13
 #define LCD_CS             (gpio_num_t) GPIO_NUM_10
-#define LCD_RESET          (gpio_num_t) GPIO_NUM_13
+#define LCD_RESET          (gpio_num_t) GPIO_NUM_14
 #define LCD_BUSY           (gpio_num_t) GPIO_NUM_NC
 
-#define LCD_BACKLIGHT      (gpio_num_t) GPIO_NUM_47
+#define LCD_BACKLIGHT      (gpio_num_t) GPIO_NUM_NC
 #define LCD_BACKLIGHT_LEDC_CH  (1)
 
 // Touch - FT6336 over I2C

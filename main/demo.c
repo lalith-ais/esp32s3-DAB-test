@@ -10,21 +10,20 @@
 #include <esp_log.h>
 #include <esp_err.h>
 #include <esp_check.h>
-#include <esp_lcd_touch.h>
+
 
 #include <lvgl.h>
 #include <esp_lvgl_port.h>
 
 #include "lcd.h"
-#include "touch.h"
+
 #include "encoder.h"
 #include "logo.h"   // declares: LV_IMG_DECLARE(logo)
 
 static const char *TAG = "demo";
 
 static lv_obj_t *lbl_counter;
-static lv_obj_t *lbl_touch;     // shows live X, Y
-static lv_obj_t *lbl_touch_dot; // small dot that follows the finger
+
 static lv_obj_t *lbl_encoder;   // shows rotary encoder position
 
 static lv_obj_t *test_screen   = NULL;
@@ -105,19 +104,6 @@ static esp_err_t create_test_screen(void)
     lv_obj_set_style_text_color(lbl_counter, lv_color_make(248, 11, 181), LV_STATE_DEFAULT);
     lv_obj_align(lbl_counter, LV_ALIGN_CENTER, 0, 0);
 
-    // Touch coordinate readout at bottom
-    lbl_touch = lv_label_create(scr);
-    lv_label_set_text(lbl_touch, "Touch: ---");
-    lv_obj_set_style_text_color(lbl_touch, lv_color_make(0xff, 0xff, 0x00), LV_STATE_DEFAULT);
-    lv_obj_align(lbl_touch, LV_ALIGN_BOTTOM_MID, 0, -8);
-
-    // Small dot that moves to the touch position
-    lbl_touch_dot = lv_obj_create(scr);
-    lv_obj_set_size(lbl_touch_dot, 12, 12);
-    lv_obj_set_style_radius(lbl_touch_dot, LV_RADIUS_CIRCLE, LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_color(lbl_touch_dot, lv_color_make(0xff, 0xff, 0x00), LV_STATE_DEFAULT);
-    lv_obj_set_style_border_width(lbl_touch_dot, 0, LV_STATE_DEFAULT);
-    lv_obj_add_flag(lbl_touch_dot, LV_OBJ_FLAG_HIDDEN); // hidden until first touch
 
     // Encoder position readout
     lbl_encoder = lv_label_create(scr);
@@ -137,13 +123,13 @@ void app_main(void)
 {
     esp_lcd_panel_io_handle_t lcd_io;
     esp_lcd_panel_handle_t    lcd_panel;
-    esp_lcd_touch_handle_t    tp;
-    lvgl_port_touch_cfg_t     touch_cfg;
+
+
     lv_display_t             *lvgl_display = NULL;
     char buf[32];
     uint16_t n = 0;
 
-    ESP_ERROR_CHECK(lcd_display_brightness_init());
+
 
     ESP_ERROR_CHECK(app_lcd_init(&lcd_io, &lcd_panel));
     lvgl_display = app_lvgl_init(lcd_io, lcd_panel);
@@ -153,16 +139,9 @@ void app_main(void)
         esp_restart();
     }
 
-    ESP_ERROR_CHECK(touch_init(&tp));
-    touch_cfg.disp    = lvgl_display;
-    touch_cfg.handle  = tp;
-    touch_cfg.scale.x = 0;
-    touch_cfg.scale.y = 0;
-    lvgl_port_add_touch(&touch_cfg);
 
     ESP_ERROR_CHECK(encoder_init());
 
-    ESP_ERROR_CHECK(lcd_display_brightness_set(75));
     ESP_ERROR_CHECK(lcd_display_rotate(lvgl_display, LV_DISPLAY_ROTATION_270));
 
     // Build test screen first (hidden), then show splash on top
@@ -176,13 +155,7 @@ void app_main(void)
 
     while (42)
     {
-// --- read raw touch data ---
-		esp_lcd_touch_point_data_t touch_points[1];  // Array to store touch points
-		uint8_t point_cnt = 0;
-		uint8_t max_points = 1;
-		
-		esp_lcd_touch_read_data(tp);  // Still need to read data first
-		esp_err_t err = esp_lcd_touch_get_data(tp, touch_points, &point_cnt, max_points);
+
 
         // --- read encoder ---
         int enc_pos = encoder_get_position();
@@ -202,21 +175,7 @@ void app_main(void)
                 sprintf(buf, "Enc: %d", enc_pos);
             lv_label_set_text(lbl_encoder, buf);
 
-			if (err == ESP_OK && point_cnt > 0)
-			{
-			    sprintf(buf, "Touch: %3d, %3d", touch_points[0].x, touch_points[0].y);
-			    lv_label_set_text(lbl_touch, buf);
-			    lv_obj_align(lbl_touch, LV_ALIGN_BOTTOM_MID, 0, -8);
-			
-			    // Move the dot to the finger position
-			    lv_obj_clear_flag(lbl_touch_dot, LV_OBJ_FLAG_HIDDEN);
-			    lv_obj_set_pos(lbl_touch_dot, touch_points[0].x - 6, touch_points[0].y - 6);
-			}
-            else
-            {
-                lv_label_set_text(lbl_touch, "Touch: ---");
-                lv_obj_add_flag(lbl_touch_dot, LV_OBJ_FLAG_HIDDEN);
-            }
+	
 
             lvgl_port_unlock();
         }

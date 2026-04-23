@@ -4,19 +4,26 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-// Encoder GPIO pins - adjust if your wiring differs
-#define ENCODER_PIN_A       (gpio_num_t) GPIO_NUM_4
-#define ENCODER_PIN_B       (gpio_num_t) GPIO_NUM_5
-#define ENCODER_PIN_SW      (gpio_num_t) GPIO_NUM_6
+// ── Pin assignments ────────────────────────────────────────────────────────────
+#define ENCODER_PIN_A   GPIO_NUM_4   // CLK
+#define ENCODER_PIN_B   GPIO_NUM_5   // DT
+#define ENCODER_PIN_SW  GPIO_NUM_6   // Switch
 
-// Debounce time for the push button (ms)
+// ── Button debounce ───────────────────────────────────────────────────────────
 #define ENCODER_SW_DEBOUNCE_MS  100
 
+// ── API ───────────────────────────────────────────────────────────────────────
+
+// Initialise PCNT hardware and button GPIO
 esp_err_t encoder_init(void);
 
-// Returns the current position (0 .. max_pos-1), wrapping around
+// Current position in detent steps.
+// Positive = CW, negative = CCW from the last reset.
 int  encoder_get_position(void);
 
+// Reset position counter to zero.
+// Use this when entering a new context (e.g. switching from volume to station select).
+void encoder_set_position(int pos);
 
-// Returns true once per button press (edge triggered, debounced)
+// Returns true once per button press (edge-triggered, debounced).
 bool encoder_sw_pressed(void);

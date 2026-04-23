@@ -22,12 +22,18 @@ static volatile bool    s_sw_pending = false;
 // ---------------------------------------------------------------------------
 // Button GPIO ISR
 // ---------------------------------------------------------------------------
+// encoder.c — replace the ISR
 static void IRAM_ATTR gpio_sw_isr(void *arg)
 {
     int64_t now = esp_timer_get_time();
-    if ((now - s_last_interrupt_us) > (ENCODER_SW_DEBOUNCE_MS * 1000)) {
+    if ((now - s_last_interrupt_us) < (ENCODER_SW_DEBOUNCE_MS * 1000)) {
+        return;   // too soon — ignore
+    }
+    s_last_interrupt_us = now;
+
+    // Only register a press on the falling edge (pin low = pressed)
+    if (gpio_get_level(ENCODER_PIN_SW) == 0) {
         s_sw_pending = true;
-        s_last_interrupt_us = now;
     }
 }
 

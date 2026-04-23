@@ -10,7 +10,7 @@
 #define ENCODER_PIN_SW  GPIO_NUM_6   // Switch
 
 // ── Button debounce ───────────────────────────────────────────────────────────
-#define ENCODER_SW_DEBOUNCE_MS  100
+#define ENCODER_SW_DEBOUNCE_MS  300
 
 // ── API ───────────────────────────────────────────────────────────────────────
 

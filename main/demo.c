@@ -19,6 +19,7 @@
 
 #include "encoder.h"
 #include "logo.h"   // declares: LV_IMG_DECLARE(logo)
+#include "test_screen.h"
 
 static const char *TAG = "demo";
 
@@ -169,8 +170,13 @@ void app_main(void)
             lv_label_set_text(lbl_counter, buf);
 
             // encoder position
-            if (sw_pressed)
-                sprintf(buf, "Enc: %d [CLICK]", enc_pos);
+            if (sw_pressed){
+			test_screen_noise();
+			}
+          
+          
+          
+          
             else
                 sprintf(buf, "Enc: %d", enc_pos);
             lv_label_set_text(lbl_encoder, buf);

@@ -16,7 +16,7 @@ esp_err_t encoder_init(void);
 
 // Returns the current position (0 .. max_pos-1), wrapping around
 int  encoder_get_position(void);
-void encoder_set_position(int pos);
+
 
 // Returns true once per button press (edge triggered, debounced)
 bool encoder_sw_pressed(void);

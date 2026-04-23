@@ -30,8 +30,8 @@ static volatile bool    s_sw_pending = false;   // set in ISR, cleared by encode
 // PCNT overflow/underflow watch-point callback
 // Called when the hardware counter hits +/- PCNT_HIGH_LIMIT
 // ---------------------------------------------------------------------------
-#define PCNT_HIGH_LIMIT  100
-#define PCNT_LOW_LIMIT  -100
+#define PCNT_HIGH_LIMIT  32766
+#define PCNT_LOW_LIMIT  -32767
 
 static bool IRAM_ATTR pcnt_on_reach(pcnt_unit_handle_t unit,
                                     const pcnt_watch_event_data_t *edata,
@@ -150,14 +150,6 @@ int encoder_get_position(void)
     return (s_accumulated + hw) / 4;
 }
 
-
-void encoder_set_position(int pos)
-{
-    // Set accumulated so that (accumulated + hw) / 4 == pos
-    // Reset hw counter to 0 for simplicity
-    pcnt_unit_clear_count(s_pcnt_unit);
-    s_accumulated = pos * 4;
-}
 
 
 bool encoder_sw_pressed(void)

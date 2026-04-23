@@ -1,29 +1,21 @@
 #include <stdio.h>
-#include <math.h>
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
-#include <freertos/event_groups.h>
-#include <freertos/semphr.h>
 
-#include <esp_system.h>
 #include <esp_log.h>
 #include <esp_err.h>
 #include <esp_check.h>
-
 
 #include <lvgl.h>
 #include <esp_lvgl_port.h>
 
 #include "lcd.h"
-
 #include "encoder.h"
-#include "logo.h"   // declares: LV_IMG_DECLARE(logo)
+#include "logo.h"
 #include "test_screen.h"
 
 static const char *TAG = "demo";
-
-static lv_obj_t *lbl_counter;
 
 static lv_obj_t *lbl_encoder;   // shows rotary encoder position
 
@@ -56,27 +48,22 @@ static void create_splash_screen(void)
     // Overlay text on top of the logo
     lv_obj_t *lbl = lv_label_create(splash_screen);
     lv_label_set_text(lbl, "ESP32 S3 FM / DAB / DAB+  Radio");
-
-    // Style the text
     lv_obj_set_style_text_color(lbl, lv_color_white(), LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(lbl, &lv_font_montserrat_14, LV_STATE_DEFAULT);
-
-    // Position it – e.g. near the bottom of the screen
     lv_obj_align(lbl, LV_ALIGN_BOTTOM_MID, 0, -16);
 }
 
 
-// ─── Test screen (original app_lvgl_main, now builds into its own screen) ────
+// ─── Test screen ─────────────────────────────────────────────────────────────
 
 static esp_err_t create_test_screen(void)
 {
-    test_screen = lv_obj_create(NULL);   // <-- own screen, not lv_scr_act()
+    test_screen = lv_obj_create(NULL);
 
     lvgl_port_lock(0);
 
-    lv_obj_t *scr = test_screen;  // convenience alias
+    lv_obj_t *scr = test_screen;
 
-    // Background
     lv_obj_set_style_bg_color(scr, lv_color_black(), LV_STATE_DEFAULT);
 
     // Colour-check labels
@@ -94,17 +81,6 @@ static esp_err_t create_test_screen(void)
     lv_label_set_text(labelB, "Blue");
     lv_obj_set_style_text_color(labelB, lv_color_make(0, 0, 0xff), LV_STATE_DEFAULT);
     lv_obj_align(labelB, LV_ALIGN_TOP_MID, 0, 48);
-
-    // Counter button (still tappable)
-    lv_obj_t *btn_counter = lv_button_create(scr);
-    lv_obj_align(btn_counter, LV_ALIGN_CENTER, 0, 0);
-    lv_obj_set_size(btn_counter, 120, 50);
-
-    lbl_counter = lv_label_create(btn_counter);
-    lv_label_set_text(lbl_counter, "0000");
-    lv_obj_set_style_text_color(lbl_counter, lv_color_make(248, 11, 181), LV_STATE_DEFAULT);
-    lv_obj_align(lbl_counter, LV_ALIGN_CENTER, 0, 0);
-
 
     // Encoder position readout
     lbl_encoder = lv_label_create(scr);
@@ -124,25 +100,17 @@ void app_main(void)
 {
     esp_lcd_panel_io_handle_t lcd_io;
     esp_lcd_panel_handle_t    lcd_panel;
-
-
     lv_display_t             *lvgl_display = NULL;
     char buf[32];
-    uint16_t n = 0;
-
-
 
     ESP_ERROR_CHECK(app_lcd_init(&lcd_io, &lcd_panel));
     lvgl_display = app_lvgl_init(lcd_io, lcd_panel);
-    if (lvgl_display == NULL)
-    {
+    if (lvgl_display == NULL) {
         ESP_LOGI(TAG, "fatal error in app_lvgl_init");
         esp_restart();
     }
 
-
     ESP_ERROR_CHECK(encoder_init());
-
     ESP_ERROR_CHECK(lcd_display_rotate(lvgl_display, LV_DISPLAY_ROTATION_270));
 
     // Build test screen first (hidden), then show splash on top
@@ -154,40 +122,20 @@ void app_main(void)
     lv_timer_create(splash_timer_cb, 2500, NULL);  // switch after 2.5 s
     lvgl_port_unlock();
 
-    while (42)
-    {
-
-
-        // --- read encoder ---
-        int enc_pos = encoder_get_position();
+    for (;;) {
+        int enc_pos     = encoder_get_position();
         bool sw_pressed = encoder_sw_pressed();
 
-        // --- update LVGL labels under lock ---
-        if (lvgl_port_lock(0))
-        {
-            // counter ticks regardless
-            sprintf(buf, "%04d", n++);
-            lv_label_set_text(lbl_counter, buf);
-
-            // encoder position
-            if (sw_pressed){
-			test_screen_noise();
-			}
-          
-          
-          
-          
-            else
+        if (lvgl_port_lock(0)) {
+            if (sw_pressed) {
+                test_screen_noise();
+            } else {
                 sprintf(buf, "Enc: %d", enc_pos);
-            lv_label_set_text(lbl_encoder, buf);
-
-	
-
+                lv_label_set_text(lbl_encoder, buf);
+            }
             lvgl_port_unlock();
         }
 
         vTaskDelay(50 / portTICK_PERIOD_MS); // ~20 Hz poll
     }
-
-    vTaskDelay(portMAX_DELAY);
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+// ── Display geometry ──────────────────────────────────────────────────────────
 #define LCD_H_RES          240
 #define LCD_V_RES          320
 #define LCD_BITS_PIXEL     16
@@ -7,34 +8,18 @@
 #define LCD_DOUBLE_BUFFER  1
 #define LCD_DRAWBUF_SIZE   (LCD_H_RES * LCD_BUF_LINES)
 
-
+// ── Mirror / invert ───────────────────────────────────────────────────────────
 #define LCD_MIRROR_X       (false)
 #define LCD_MIRROR_Y       (true)
 
-
+// ── SPI / timing ─────────────────────────────────────────────────────────────
 #define LCD_PIXEL_CLOCK_HZ (40 * 1000 * 1000)
 #define LCD_CMD_BITS       (8)
 #define LCD_PARAM_BITS     (8)
 #define LCD_SPI_HOST       SPI2_HOST
 #define LCD_SPI_CLK        (gpio_num_t) GPIO_NUM_12
 #define LCD_SPI_MOSI       (gpio_num_t) GPIO_NUM_11
-#define LCD_SPI_MISO       (gpio_num_t) GPIO_NUM_NC 
+#define LCD_SPI_MISO       (gpio_num_t) GPIO_NUM_NC
 #define LCD_DC             (gpio_num_t) GPIO_NUM_13
 #define LCD_CS             (gpio_num_t) GPIO_NUM_10
 #define LCD_RESET          (gpio_num_t) GPIO_NUM_14
-#define LCD_BUSY           (gpio_num_t) GPIO_NUM_NC
-
-#define LCD_BACKLIGHT      (gpio_num_t) GPIO_NUM_NC
-#define LCD_BACKLIGHT_LEDC_CH  (1)
-
-// Touch - FT6336 over I2C
-#define TOUCH_I2C_PORT      I2C_NUM_0
-#define TOUCH_I2C_ADDR      0x38            // FT6336 default address
-#define TOUCH_I2C_CLOCK_HZ  (400 * 1000)   // 400kHz fast mode
-#define TOUCH_SDA           (gpio_num_t) GPIO_NUM_8
-#define TOUCH_SCL           (gpio_num_t) GPIO_NUM_9
-#define TOUCH_IRQ           (gpio_num_t) GPIO_NUM_15
-#define TOUCH_RST           (gpio_num_t) GPIO_NUM_16
-
-#define TOUCH_MIRROR_X      false
-#define TOUCH_MIRROR_Y      true

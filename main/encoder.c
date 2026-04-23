@@ -12,17 +12,16 @@
 
 static const char *TAG = "encoder";
 
-// PCNT unit handle
 static pcnt_unit_handle_t s_pcnt_unit = NULL;
 
-// Button state
 static volatile int64_t s_last_interrupt_us = 0;
 static volatile bool    s_sw_pending = false;
+
 
 // ---------------------------------------------------------------------------
 // Button GPIO ISR
 // ---------------------------------------------------------------------------
-// encoder.c — replace the ISR
+
 static void IRAM_ATTR gpio_sw_isr(void *arg)
 {
     int64_t now = esp_timer_get_time();
@@ -37,6 +36,7 @@ static void IRAM_ATTR gpio_sw_isr(void *arg)
     }
 }
 
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -46,9 +46,7 @@ esp_err_t encoder_init(void)
     ESP_LOGI(TAG, "Initialising rotary encoder A=%d B=%d SW=%d",
              ENCODER_PIN_A, ENCODER_PIN_B, ENCODER_PIN_SW);
 
-    // --- PCNT unit ---
-    // flags.accum_count = true lets the hardware accumulate across the
-    // ±32767 counter range automatically — no manual overflow callback needed
+    // flags.accum_count lets hardware accumulate across the ±32767 range automatically
     pcnt_unit_config_t unit_cfg = {
         .low_limit         = -32767,
         .high_limit        =  32766,
@@ -56,7 +54,7 @@ esp_err_t encoder_init(void)
     };
     ESP_RETURN_ON_ERROR(pcnt_new_unit(&unit_cfg, &s_pcnt_unit), TAG, "pcnt_new_unit failed");
 
-    // Glitch filter — ignores pulses shorter than 1 µs (removes contact bounce)
+    // Glitch filter — ignores pulses shorter than 1 µs
     pcnt_glitch_filter_config_t filter_cfg = {
         .max_glitch_ns = 1000,
     };
@@ -90,12 +88,11 @@ esp_err_t encoder_init(void)
         PCNT_CHANNEL_LEVEL_ACTION_KEEP,
         PCNT_CHANNEL_LEVEL_ACTION_INVERSE);
 
-    // No watch-point callbacks needed — hardware accumulation handles overflow
     ESP_RETURN_ON_ERROR(pcnt_unit_enable(s_pcnt_unit),      TAG, "pcnt enable failed");
     ESP_RETURN_ON_ERROR(pcnt_unit_clear_count(s_pcnt_unit), TAG, "pcnt clear failed");
     ESP_RETURN_ON_ERROR(pcnt_unit_start(s_pcnt_unit),       TAG, "pcnt start failed");
 
-    // --- Push button ---
+    // Push button
     gpio_config_t sw_cfg = {
         .pin_bit_mask = (1ULL << ENCODER_PIN_SW),
         .mode         = GPIO_MODE_INPUT,
@@ -123,12 +120,11 @@ int encoder_get_position(void)
     return hw / 4;
 }
 
-void encoder_set_position(int pos)
+void encoder_reset_position(void)
 {
+    // Hardware accumulation only supports reset to 0.
+    // Manage the logical range (e.g. volume 0-100) in the caller.
     pcnt_unit_clear_count(s_pcnt_unit);
-    // Note: with hardware accumulation we can only reset to 0.
-    // For the radio use case (volume 0-100, station index) always
-    // reset to 0 and manage the logical range in the caller.
 }
 
 bool encoder_sw_pressed(void)

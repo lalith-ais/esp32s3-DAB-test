@@ -14,7 +14,7 @@
 
 // ── API ───────────────────────────────────────────────────────────────────────
 
-// Initialise PCNT hardware and button GPIO
+// Initialise PCNT hardware and button GPIO.
 esp_err_t encoder_init(void);
 
 // Current position in detent steps.
@@ -23,7 +23,7 @@ int  encoder_get_position(void);
 
 // Reset position counter to zero.
 // Use this when entering a new context (e.g. switching from volume to station select).
-void encoder_set_position(int pos);
+void encoder_reset_position(void);
 
 // Returns true once per button press (edge-triggered, debounced).
 bool encoder_sw_pressed(void);

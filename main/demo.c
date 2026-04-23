@@ -14,6 +14,8 @@
 #include "encoder.h"
 #include "logo.h"
 #include "test_screen.h"
+#include "hardware.h"
+#include "driver/gpio.h"
 
 static const char *TAG = "demo";
 
@@ -98,6 +100,13 @@ static esp_err_t create_test_screen(void)
 
 void app_main(void)
 {
+	
+	gpio_set_direction(LCD_RESET, GPIO_MODE_OUTPUT);
+    gpio_set_level(LCD_RESET, 0);
+    vTaskDelay(pdMS_TO_TICKS(10));   // hold reset low — 10ms is plenty
+    gpio_set_level(LCD_RESET, 1);
+    vTaskDelay(pdMS_TO_TICKS(120));  // ILI9341 requires 120ms after reset before commands
+
     esp_lcd_panel_io_handle_t lcd_io;
     esp_lcd_panel_handle_t    lcd_panel;
     lv_display_t             *lvgl_display = NULL;

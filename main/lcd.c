@@ -32,7 +32,7 @@ static const ili9341_lcd_init_cmd_t ili9341_init_cmds[] = {
     {0xC0, (uint8_t []){0x23}, 1, 0},       // Power control 1
     {0xC1, (uint8_t []){0x10}, 1, 0},       // Power control 2
     {0xC5, (uint8_t []){0x3E, 0x28}, 2, 0}, // VCM control 1
-    {0xC7, (uint8_t []){0x86}, 1, 0},       // VCM control 2
+    {0xC7, (uint8_t []){0x80}, 1, 0},       // VCM control 2
     {0xB1, (uint8_t []){0x00, 0x13}, 2, 0}, // Frame rate 100Hz
     {0xB6, (uint8_t []){0x08, 0x82, 0x27}, 3, 0}, // Display function
     {0xF2, (uint8_t []){0x00}, 1, 0},       // 3Gamma disable

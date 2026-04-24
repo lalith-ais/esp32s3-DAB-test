@@ -1,12 +1,9 @@
+// demo.c - Clean version without unused timer
 #include <stdio.h>
-
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
-
 #include <esp_log.h>
 #include <esp_err.h>
-#include <esp_check.h>
-
 #include <lvgl.h>
 #include <esp_lvgl_port.h>
 
@@ -19,35 +16,23 @@
 
 static const char *TAG = "demo";
 
-static lv_obj_t *lbl_encoder;   // shows rotary encoder position
-
-static lv_obj_t *test_screen   = NULL;
 static lv_obj_t *splash_screen = NULL;
 
-
 // ─── Splash timer callback ────────────────────────────────────────────────────
-
-static void splash_timer_cb(lv_timer_t *timer)
-{
+static void splash_timer_cb(lv_timer_t *timer) {
     lv_timer_del(timer);
-    // Fade in over 400 ms; last arg = true → auto-delete splash after transition
     lv_scr_load_anim(test_screen, LV_SCR_LOAD_ANIM_FADE_IN, 400, 0, true);
 }
 
-
 // ─── Splash screen ────────────────────────────────────────────────────────────
-
-static void create_splash_screen(void)
-{
+static void create_splash_screen(void) {
     splash_screen = lv_obj_create(NULL);
     lv_obj_set_style_bg_color(splash_screen, lv_color_black(), LV_STATE_DEFAULT);
 
-    // The logo is 320×240 – exactly fills the display in landscape
     lv_obj_t *img = lv_img_create(splash_screen);
     lv_img_set_src(img, &logo);
     lv_obj_center(img);
 
-    // Overlay text on top of the logo
     lv_obj_t *lbl = lv_label_create(splash_screen);
     lv_label_set_text(lbl, "ESP32 S3 FM / DAB / DAB+  Radio");
     lv_obj_set_style_text_color(lbl, lv_color_white(), LV_STATE_DEFAULT);
@@ -55,62 +40,18 @@ static void create_splash_screen(void)
     lv_obj_align(lbl, LV_ALIGN_BOTTOM_MID, 0, -16);
 }
 
-
-// ─── Test screen ─────────────────────────────────────────────────────────────
-
-static esp_err_t create_test_screen(void)
-{
-    test_screen = lv_obj_create(NULL);
-
-    lvgl_port_lock(0);
-
-    lv_obj_t *scr = test_screen;
-
-    lv_obj_set_style_bg_color(scr, lv_color_black(), LV_STATE_DEFAULT);
-
-    // Colour-check labels
-    lv_obj_t *labelR = lv_label_create(scr);
-    lv_label_set_text(labelR, "Red");
-    lv_obj_set_style_text_color(labelR, lv_color_make(0xff, 0, 0), LV_STATE_DEFAULT);
-    lv_obj_align(labelR, LV_ALIGN_TOP_MID, 0, 0);
-
-    lv_obj_t *labelG = lv_label_create(scr);
-    lv_label_set_text(labelG, "Green");
-    lv_obj_set_style_text_color(labelG, lv_color_make(0, 0xff, 0), LV_STATE_DEFAULT);
-    lv_obj_align(labelG, LV_ALIGN_TOP_MID, 0, 24);
-
-    lv_obj_t *labelB = lv_label_create(scr);
-    lv_label_set_text(labelB, "Blue");
-    lv_obj_set_style_text_color(labelB, lv_color_make(0, 0, 0xff), LV_STATE_DEFAULT);
-    lv_obj_align(labelB, LV_ALIGN_TOP_MID, 0, 48);
-
-    // Encoder position readout
-    lbl_encoder = lv_label_create(scr);
-    lv_label_set_text(lbl_encoder, "Enc: 0");
-    lv_obj_set_style_text_color(lbl_encoder, lv_color_make(0x00, 0xff, 0xff), LV_STATE_DEFAULT);
-    lv_obj_align(lbl_encoder, LV_ALIGN_BOTTOM_LEFT, 8, -8);
-
-    lvgl_port_unlock();
-
-    return ESP_OK;
-}
-
-
-// ─── app_main ─────────────────────────────────────────────────────────────────
-
-void app_main(void)
-{
-	
-	gpio_set_direction(LCD_RESET, GPIO_MODE_OUTPUT);
+void app_main(void) {
+    // LCD Reset sequence
+    gpio_set_direction(LCD_RESET, GPIO_MODE_OUTPUT);
     gpio_set_level(LCD_RESET, 0);
-    vTaskDelay(pdMS_TO_TICKS(10));   // hold reset low — 10ms is plenty
+    vTaskDelay(pdMS_TO_TICKS(10));
     gpio_set_level(LCD_RESET, 1);
-    vTaskDelay(pdMS_TO_TICKS(120));  // ILI9341 requires 120ms after reset before commands
+    vTaskDelay(pdMS_TO_TICKS(120));
 
+    // Initialize LCD and LVGL
     esp_lcd_panel_io_handle_t lcd_io;
-    esp_lcd_panel_handle_t    lcd_panel;
-    lv_display_t             *lvgl_display = NULL;
-    char buf[32];
+    esp_lcd_panel_handle_t lcd_panel;
+    lv_display_t *lvgl_display = NULL;
 
     ESP_ERROR_CHECK(app_lcd_init(&lcd_io, &lcd_panel));
     lvgl_display = app_lvgl_init(lcd_io, lcd_panel);
@@ -122,29 +63,48 @@ void app_main(void)
     ESP_ERROR_CHECK(encoder_init());
     ESP_ERROR_CHECK(lcd_display_rotate(lvgl_display, LV_DISPLAY_ROTATION_270));
 
-    // Build test screen first (hidden), then show splash on top
-    ESP_ERROR_CHECK(create_test_screen());
+    // Create test screen
+    create_test_screen();
 
     lvgl_port_lock(0);
     create_splash_screen();
-    lv_scr_load(splash_screen);                    // show splash immediately
-    lv_timer_create(splash_timer_cb, 2500, NULL);  // switch after 2.5 s
+    lv_scr_load(splash_screen);
+    lv_timer_create(splash_timer_cb, 2500, NULL);
     lvgl_port_unlock();
 
+    // Initialize test data
+    update_test_signal_strength(75);
+    update_test_play_status(true);
+    update_test_encoder(0);
+
+    // Main loop
+    int32_t last_encoder_pos = 0;
+    
     for (;;) {
-        int enc_pos     = encoder_get_position();
+        int32_t enc_pos = encoder_get_position();
         bool sw_pressed = encoder_sw_pressed();
 
         if (lvgl_port_lock(0)) {
+            // Update encoder if changed
+            if (enc_pos != last_encoder_pos) {
+                last_encoder_pos = enc_pos;
+                update_test_encoder(enc_pos);
+            }
+            
+            // Handle button press
             if (sw_pressed) {
-                test_screen_noise();
-            } else {
-                sprintf(buf, "Enc: %d", enc_pos);
-                lv_label_set_text(lbl_encoder, buf);
+                static bool playing = true;
+                playing = !playing;
+                update_test_play_status(playing);
+                
+                // Also cycle signal strength for demo
+                static uint8_t signal = 75;
+                signal = (signal + 15) % 100;
+                update_test_signal_strength(signal);
             }
             lvgl_port_unlock();
         }
 
-        vTaskDelay(50 / portTICK_PERIOD_MS); // ~20 Hz poll
+        vTaskDelay(pdMS_TO_TICKS(50));
     }
 }

@@ -9,20 +9,50 @@
 
 static const char *TAG = "test_screen";
 
-// Professional color palette
-#define COLOR_BG_MAIN       0x101218
-#define COLOR_BG_CARD       0x1A1D28
-#define COLOR_TEXT_PRIMARY  0xFFFFFF
-#define COLOR_TEXT_SECONDARY 0xC8D0E0
-#define COLOR_ACCENT_CYAN   0x00BCD4
-#define COLOR_STATUS_GREEN  0x4CAF50
-#define COLOR_STATUS_AMBER  0xFFC107
-#define COLOR_STATUS_RED    0xF44336
-#define COLOR_SIGNAL_STRONG 0x4CAF50
-#define COLOR_SIGNAL_WEAK   0xFFC107
-#define COLOR_SIGNAL_POOR   0xF44336
-#define COLOR_VU_LEFT       0x00BCD4  // Cyan for left channel
-#define COLOR_VU_RIGHT      0x4CAF50  // Green for right channel
+
+// Backgrounds - Deep rich colors
+#define COLOR_BG_MAIN       0x0A0E1A  // Deep navy/blue-black
+#define COLOR_BG_CARD       0x16213E  // Rich royal blue-dark
+#define COLOR_BG_HIGHLIGHT  0x1A2A4A  // Lighter blue for contrast
+
+// Primary Text - Crisp white with slight tint
+#define COLOR_TEXT_PRIMARY  0xFFFFFF  // Pure white
+#define COLOR_TEXT_SECONDARY 0xA8D0E6 // Ice blue (soft but vibrant)
+#define COLOR_TEXT_DIM      0x6A8CAE  // Muted blue for less important info
+
+// ACCENT COLORS - High energy
+#define COLOR_ACCENT_SUNSET 0xFF6B6B  // Coral/Crimson - attention grabbing
+#define COLOR_ACCENT_ELECTRIC 0x00E5FF // Electric cyan - modern HMI feel
+#define COLOR_ACCENT_AMBER  0xFFB347  // Warm amber - warnings
+#define COLOR_ACCENT_PURPLE 0xBF5FFF  // Vibrant purple - premium feel
+
+// Status Colors
+#define COLOR_STATUS_PLAY   0x00FF88  // Neon green - playing
+#define COLOR_STATUS_TUNE   0x00E5FF  // Electric cyan - tuning
+#define COLOR_STATUS_STOP   0xFF4444  // Bright red - stop/error
+#define COLOR_STATUS_STEREO 0x00FF88  // Neon green - stereo
+#define COLOR_STATUS_MONO   0xFFB347  // Amber - mono (still vibrant)
+
+// Signal Strength
+#define COLOR_SIGNAL_STRONG 0x00FF88  // Neon green
+#define COLOR_SIGNAL_GOOD   0xCCFF00  // Lime green
+#define COLOR_SIGNAL_WEAK   0xFFB347  // Amber
+#define COLOR_SIGNAL_POOR   0xFF4444  // Bright red
+
+// VU Meter
+#define COLOR_VU_LEFT       0x00E5FF  // Electric cyan
+#define COLOR_VU_RIGHT      0x00FF88  // Neon green
+#define COLOR_VU_PEAK       0xFFFFFF  // White peak markers
+
+// UI Elements
+#define COLOR_STATUS_LED_PLAY 0x00FF88  // Neon green LED
+#define COLOR_STATUS_LED_STOP 0xFF4444  // Bright red LED
+#define COLOR_ENCODER       0xFF6B6B  // Coral for encoder value
+
+#define COLOR_ACCENT_CYAN   0x00FFFF  // Pure BRIGHT cyan
+#define COLOR_STATUS_GREEN  0x39FF14  // Neon green (eye-catching!)
+#define COLOR_STATUS_AMBER  0xFFA500  // Bright orange
+#define COLOR_STATUS_RED    0xFF0040  // Neon pink-red
 
 lv_obj_t *test_screen = NULL;
 
